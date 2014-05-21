@@ -1,0 +1,78 @@
+28,30d27
+< #ssh config
+< SSH_CONFIG="$PEGASUS_HOME/.ssh/config"
+< 
+32c29
+< IGET_THREAD_NUM=8;
+---
+> IGET_THREAD_NUM=6;
+35c32
+< SCP_CMD="sshpass -p $SVR_PASS scp -r"
+---
+> SCP_CMD="sshpass -p $SVR_PASS scp -r -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+37,73c34,35
+< #bbcp config
+< BBCP_URL="http://www.slac.stanford.edu/~abh/bbcp/bin/amd64_rhel60/bbcp"
+< BBCP_DEST="/usr/local/bin"
+< BBCP_CMD="sshpass -p $SVR_PASS bbcp -r"
+< 
+< #install sshpass, openssl openssl-devel
+< yum install -y sshpass openssl openssl-devel
+< 
+< #download bbcp
+< wget $BBCP_URL -P $BBCP_DEST
+< chmod +x $BBCP_DEST/bbcp
+< 
+< #config TCP parameters
+< ### IPV4 specific settings
+< systcl -w net.ipv4.tcp_timestamps = 0
+< systcl -w net.ipv4.tcp_sack = 0
+< 
+< ### on systems with a VERY fast bus -> memory interface this is the big gainer
+< systcl -w net.ipv4.tcp_rmem = 536870912 536870912 536870912
+< systcl -w net.ipv4.tcp_wmem = 536870912 536870912 536870912
+< systcl -w net.ipv4.tcp_mem = 536870912 536870912 536870912 
+< 
+< ### CORE settings (mostly for socket and UDP effect)
+< systcl -w net.core.rmem_max = 536870912 
+< systcl -w net.core.wmem_max = 536870912
+< systcl -w net.core.rmem_default = 536870912
+< systcl -w net.core.wmem_default = 536870912
+< systcl -w net.core.optmem_max = 536870912 
+< systcl -w net.core.netdev_max_backlog = 1000000 
+< 
+< #disable ssh strict host key checking
+< cat << EOF > $SSH_CONFIG
+< Host *
+< 	StrictHostKeyChecking no
+< EOF
+< chmod 600 $SSH_CONFIG
+< chown -R pegasus-user:pegasus-user $SSH_CONFIG
+---
+> #install sshpass
+> yum install -y sshpass
+100,101c62,63
+< PATH=\$PATH:$ICMD_BIN:$BBCP_DEST
+< IGET_THREAD_NUM=${1-8}
+---
+> PATH=\$PATH:$ICMD_BIN
+> IGET_THREAD_NUM=${1-6}
+106c68
+< IGET_RUNTIME=\$({ time iget -r -N\$IGET_THREAD_NUM $ICAT_TGT $DEST; } 2>&1 | awk '/real.*/{print \$2}')
+---
+> IGET_RUNTIME=\$({ time iget -r -N\$IGET_THREAD_NUM $ICAT_TGT $DEST; } 2>&amp;1 | awk '/real.*/{print \$2}')
+109c71
+< SCP_RUNTIME=\$({ time $SCP_CMD $SVR_USR@$SVR_IP:$SVR_TGT $DEST; } 2>&1 | awk '/real.*/{print \$2}')
+---
+> SCP_RUNTIME=\$({ time $SCP_CMD $SVR_USR@$SVR_IP:$SVR_TGT $DEST; } 2>&amp;1 | awk '/real.*/{print \$2}')
+111,112d72
+< #transfer target using bbcp
+< BBCP_RUNTIME=\$({ time $BBCP_CMD $SVR_USR@$SVR_IP:$ICAT_TGT $PEGASUS_HOME; } 2>&1 | awk '/real.*/{print \$2}')
+115c75
+< echo -e "iget runtime: \$IGET_RUNTIME\nscp runtime: \$SCP_RUNTIME\nbbcp runtime: \$BBCP_RUNTIME" > $RESULT
+---
+> echo -e "iget runtime: \$IGET_RUNTIME\nscp runtime: \$SCP_RUNTIME" > $RESULT
+121c81
+< su pegasus-user -c "$BENCHMARK $IGET_THREAD_NUM && rm $BENCHMARK"
+---
+> su pegasus-user -c "$BENCHMARK $IGET_THREAD_NUM &amp;&amp; rm $BENCHMARK"

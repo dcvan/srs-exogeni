@@ -1,0 +1,42 @@
+#!/bin/bash
+
+PEGASUS_HOME="/home/pegasus-user"
+EXON_HOME="$PEGASUS_HOME/genomics/wf_exon_irods"
+POSTSCRIPT="$PEGASUS_HOME/postscript.sh"
+LOG="$PEGASUS_HOME/wf.log"
+GENOMEDATA="$PEGASUS_HOME/genomicdata"
+SUB_PATH="$PEGASUS_HOME/genomics/wf_exon_irods/pegasus-user/pegasus/exonalignwf/run0001"
+IGET_CMD="$PEGASUS_HOME/iRODS/clients/icommands/bin/iget"
+
+#create post script 
+cat > $POSTSCRIPT << EOF
+#!/bin/bash
+cd $EXON_HOME
+./cleanup.sh
+python gendag.py > dax.xml && ./genplan.sh && pegasus-run $SUB_PATH
+
+cd $SUB_PATH
+sleep 3s
+
+#check the completion of the workflow every 30mins
+while ! pegasus-statistics 2> /dev/null;do
+        sleep 30m
+done
+
+#collect workflow runtime data
+WF_TIME=\$(pegasus-statistics | grep -i "^workflow wall time" | awk -F: '{print \$2}' | sed "s/[ \t]*//g")
+
+#track runtime for data transfer using iget
+IGET_TIME=\$({ time $IGET_CMD  -r genomicdata ~; } 2>&1 | grep "real" | awk '{print \$2}')
+
+#write to log file
+echo "workflow runtime: \$WF_TIME" >> $LOG
+echo "iget runtime: \$IGET_TIME" >> $LOG
+
+EOF
+
+chown pegasus-user $POSTSCRIPT
+chmod +x $POSTSCRIPT
+
+su pegasus-user -c "
+$POSTSCRIPT && rm -rf $POSTSCRIPT $GENOMEDATA
