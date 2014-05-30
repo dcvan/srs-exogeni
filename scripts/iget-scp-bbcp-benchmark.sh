@@ -35,6 +35,7 @@ INT_INCR=5 #interval increment after each iteration(min)
 
 #ssh config
 SSH_CONFIG="$ROOT_HOME/.ssh/config"
+SSH_CMD="sshpass -p $SVR_PASS ssh"
 
 #iget config
 IGET_THREAD_NUM=6
@@ -118,13 +119,21 @@ echo -e "timestamp\tiget runtime\tscp runtime\tbbcp runtime" >> $RESULT
 for ((i = 0;i < $NUM_OF_ITERS; i ++));do
 	#transfer target using bbcp
 	BBCP_RUNTIME=$({ time $BBCP_CMD $SVR_USR@$SVR_IP:$ICAT_TGT $ROOT_HOME >> $LOG 2>> $ERR; } 2>&1 | awk '/real.*/{print $2}' | awk -F'[ms]' '{print $1 * 60 + $2}')
-	rm -rf $DEST && sysctl -w vm.drop_caches=3 > /dev/null
+	rm -rf $DEST 
+	sysctl -w vm.drop_caches=3 > /dev/null
+	$SSH_CMD root@$SVR_IP "sysctl -w vm.drop_caches=3 > /dev/null"	
+
 	#transfer target using iget
 	IGET_RUNTIME=$({ time iget -r -N$IGET_THREAD_NUM $ICAT_TGT $DEST >> $LOG 2>> $ERR; } 2>&1 | awk '/real.*/{print $2}' | awk -F'[ms]' '{print $1 * 60 + $2}')
-	rm -rf $DEST && sysctl -w vm.drop_caches=3 > /dev/null
+	rm -rf $DEST 
+	sysctl -w vm.drop_caches=3 > /dev/null
+	$SSH_CMD root@$SVR_IP "sysctl -w vm.drop_caches=3 > /dev/null"	
+	
 	#transfer target using scp
 	SCP_RUNTIME=$({ time $SCP_CMD $SVR_USR@$SVR_IP:$SVR_TGT $DEST >> $LOG 2>> $ERR; } 2>&1 | awk '/real.*/{print $2}' | awk -F'[ms]' '{print $1 * 60 + $2}')
-	rm -rf $DEST && sysctl -w vm.drop_caches=3 > /dev/null
+	rm -rf $DEST 
+	sysctl -w vm.drop_caches=3 > /dev/null
+	$SSH_CMD root@$SVR_IP "sysctl -w vm.drop_caches=3 > /dev/null"	
 
 	echo -e "$(date +"%Y-%m-%d %T")\t$IGET_RUNTIME\t$SCP_RUNTIME\t$BBCP_RUNTIME" >> $RESULT
 	sleep $((($INIT_INT + $INT_INCR * $i)))m
