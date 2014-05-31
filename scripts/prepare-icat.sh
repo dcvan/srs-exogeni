@@ -14,27 +14,48 @@ IRODS_HOME="/var/lib/irods/iRODS"
 IRODS_DB_USER="irods"
 IRODS_DB_PASS="irods"
 IRODS_DB_TYPE="postgres"
-IRODS_HOST_IP="127.0.0.1"
 IRODS_DB_PORT="5432"
 IRODS_USER="rods"
 IRODS_PASS="pegasus"
+IRODS_CONF="/etc/irods/irods.config"
+IRODS_SERVER_CONF="/etc/irods/server.config"
+IRODS_SETUP_SCRIPT="./scripts/perl/irods_setup.pl"
 
 #postgres config
 POSTGRES_CONF="/var/lib/pgsql/data/pg_hba.conf"
+
 #basic config
 SVR_USER="pegasus-user"
 SVR_PASS="$IRODS_PASS"
-
+HOST_IP=$(ifconfig eth0|grep "inet addr"|awk -F':' '{split($2, a, " "); print a[1]}')
+HOSTNAME=$(hostname)
+LOOPBACK_IP="127.0.0.1"
 
 #create pegasus user
 useradd $SVR_USER
 echo $SVR_PASS | passwd $SVR_USER --stdin
 
+#read in the host ip address
+#echo -n "IP Address:"
+#read IRODS_HOST_IP
+#echo -n "Hostname:"
+#read IRODS_HOSTNAME
+
+#if [ ! "$IRODS_HOST_IP" ];then
+#	echo "[Error]Host IP not specified.Exit"
+#	exit 1
+#fi
+
+#if [ ! "$IRODS_HOSTNAME" ];then
+#	echo "[Error]Hostname not specified.Exit"
+#	echo 2
+#fi
+
 #overwrite /etc/hosts
 cat > /etc/hosts << EOF
-$IRODS_HOST_IP localhost
+127.0.0.1 localhost
+$HOST_IP $HOSTNAME
 EOF
-hostname localhost
 
 #download packages
 wget $ICAT_SRC -P ~
@@ -47,11 +68,12 @@ chmod +x /usr/local/bin/bbcp
 #install dependencies
 yum -y install $DEPENDENCIES
 
-#modify postgres config
-sed -i "s/\(host *all *all *127.0.0.1\/32 *\)ident/\1trust/g" $POSTGRES_CONF
-
 #initialize and start database server
 /sbin/service postgresql initdb && /sbin/service postgresql start
+
+#modify postgres config
+sed -i "s/\(host *all *all *127.0.0.1\/32 *\)ident/\1trust/g" $POSTGRES_CONF
+/sbin/service postgresql restart
 
 #modify auth config
 sed -i "s/\(server_args *= -t60 --xerror -os\) -E/\1/g" /etc/xinetd.d/auth
@@ -69,7 +91,11 @@ rpm -i ~/*.rpm
 su postgres -c "cd;psql -c \"create user $IRODS_DB_USER with password '$IRODS_DB_PASS';alter user $IRODS_DB_USER createdb;\""
 
 #irods setup
-su irods -c "cd $IRODS_HOME;perl ./scripts/perl/irods_setup.pl $IRODS_DB_TYPE $IRODS_HOST_IP $IRODS_DB_PORT $IRODS_DB_USER $IRODS_DB_PASS"
+sed -i "s/\(\$DATABASE_HOST = \).*/\1'$LOOPBACK_IP';/g" $IRODS_CONF
+sed -i "s/\(\$DATABASE_ADMIN_PASSWORD = \).*/\1'$IRODS_DB_PASS';/g" $IRODS_CONF
+echo "catalog_database_type $IRODS_DB_TYPE" >> $IRODS_SERVER_CONF
+
+su irods -c "cd $IRODS_HOME;./irodsctl stop;perl $IRODS_SETUP_SCRIPT $IRODS_DB_TYPE $LOOPBACK_IP $IRODS_DB_PORT $IRODS_DB_USER $IRODS_DB_PASS" || exit 1; 
 
 #initialize icommand
 su irods -c "iadmin moduser $IRODS_USER password $IRODS_PASS;iinit $IRODS_PASS"
@@ -82,9 +108,11 @@ wget $EXOME_1 -P $DATA_DIR
 wget $EXOME_2 -P $DATA_DIR
 
 #unzip file
+echo "Unzip genomic data ..."
 gunzip $DATA_DIR/*.gz
 chown -R irods:irods $DATA_DIR
 
 #upload to icat server
-iput -r $DATA_DIR
+echo "Upload genomic data to iCat ..."
+su irods -c "iput -r $DATA_DIR"
 
