@@ -35,21 +35,8 @@ LOOPBACK_IP="127.0.0.1"
 useradd $SVR_USER
 echo $SVR_PASS | passwd $SVR_USER --stdin
 
-#read in the host ip address
-#echo -n "IP Address:"
-#read IRODS_HOST_IP
-#echo -n "Hostname:"
-#read IRODS_HOSTNAME
-
-#if [ ! "$IRODS_HOST_IP" ];then
-#	echo "[Error]Host IP not specified.Exit"
-#	exit 1
-#fi
-
-#if [ ! "$IRODS_HOSTNAME" ];then
-#	echo "[Error]Hostname not specified.Exit"
-#	echo 2
-#fi
+#change root's password
+echo $SVR_PASS | passwd root --stdin
 
 #overwrite /etc/hosts
 cat > /etc/hosts << EOF
@@ -115,4 +102,9 @@ chown -R irods:irods $DATA_DIR
 #upload to icat server
 echo "Upload genomic data to iCat ..."
 su irods -c "iput -r $DATA_DIR"
+
+#move to pegasus-user's home dir
+echo "Move genomic data to pegasus-user's home directory..."
+chown -R $SVR_USER $DATA_DIR 
+mv $DATA_DIR /home/$SVR_USER
 

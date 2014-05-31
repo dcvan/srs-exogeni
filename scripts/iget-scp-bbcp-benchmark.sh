@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #basic settings
-SVR_IP="152.54.14.13"
+SVR_IP="152.54.14.12"
 SVR_USR="pegasus-user"
 SVR_PASS="pegasus"
 NODE_USR="pegasus-user"
