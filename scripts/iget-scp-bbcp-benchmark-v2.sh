@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #basic settings
-SVR_IP="152.54.14.12"
+SVR_IP="152.54.14.55"
 SVR_USR="pegasus-user"
 SVR_PASS="pegasus"
 NODE_USR="pegasus-user"
@@ -9,8 +9,8 @@ NODE_GRP="pegasus-user"
 PEGASUS_HOME="/home/pegasus-user"
 ROOT_HOME="/root"
 RESULT="$PEGASUS_HOME/runtime.txt"
-LOG="$ROOT/data-transfer.log"
-ERR="$ROOT/data-transfer.err"
+LOG="$ROOT_HOME/data-transfer.log"
+ERR="$ROOT_HOME/data-transfer.err"
 
 #iRODS information
 IRODS_HOST="$SVR_IP"
@@ -28,7 +28,7 @@ SVR_TGT="~/genomicdata2"
 DEST="$ROOT_HOME/genomicdata2"
 
 #benchmark config
-NUM_OF_ITERS=20 #number of benchmark iterations
+NUM_OF_ITERS=21 #number of benchmark iterations
 INIT_INT=10 #initial interval(min)
 INT_INCR=5 #interval increment after each iteration(min)
 
@@ -119,22 +119,23 @@ touch $RESULT
 chown $NODE_USR:$NODE_GRP $RESULT
 
 echo -e "timestamp\tiget runtime\tscp runtime\tbbcp runtime" >> $RESULT
+sysctl -w vm.drop_caches=3 > /dev/null
+
 for ((i = 0;i < $NUM_OF_ITERS; i ++));do
 	#transfer target using bbcp
 	BBCP_RUNTIME=$({ time $BBCP_CMD $SVR_USR@$SVR_IP:$ICAT_TGT $ROOT_HOME >> $LOG 2>> $ERR; } 2>&1 | awk '/real.*/{print $2}' | awk -F'[ms]' '{print $1 * 60 + $2}')
 	rm -rf $DEST 
 	sysctl -w vm.drop_caches=3 > /dev/null
-	$SSH_CMD root@$SVR_IP "sysctl -w vm.drop_caches=3 > /dev/null"
+
 	#transfer target using iget
 	IGET_RUNTIME=$({ time $IGET_CMD $ICAT_TGT $DEST >> $LOG 2>> $ERR; } 2>&1 | awk '/real.*/{print $2}' | awk -F'[ms]' '{print $1 * 60 + $2}')
 	rm -rf $DEST
 	sysctl -w vm.drop_caches=3 > /dev/null
-	$SSH_CMD root@$SVR_IP "sysctl -w vm.drop_caches=3 > /dev/null"
+
 	#transfer target using scp
 	SCP_RUNTIME=$({ time $SCP_CMD $SVR_USR@$SVR_IP:$SVR_TGT $DEST >> $LOG 2>> $ERR; } 2>&1 | awk '/real.*/{print $2}' | awk -F'[ms]' '{print $1 * 60 + $2}')
 	rm -rf $DEST 
 	sysctl -w vm.drop_caches=3 > /dev/null
-	$SSH_CMD root@$SVR_IP "sysctl -w vm.drop_caches=3 > /dev/null"
 
 	echo -e "$(date +"%Y-%m-%d %T")\t$IGET_RUNTIME\t$SCP_RUNTIME\t$BBCP_RUNTIME" >> $RESULT
 	sleep $((($INIT_INT + $INT_INCR * $i)))m
