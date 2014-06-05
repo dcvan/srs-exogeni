@@ -1,12 +1,17 @@
 #!/bin/bash
 
+if [ ! "$1" -o ! "$2" ];then
+    echo "<Usage> ./collect.sh <vm-list> <result-file>"
+    exit 1
+fi
+
 #input file
-IN="vm-list.txt"
+IN=$1
 
 PEGASUS_HOME="/home/pegasus-user"
 PEGASUS_USR="pegasus-user"
 PEGASUS_PASS="pegasus"
-LOG="$PEGASUS_HOME/runtime.txt"
+LOG=$2
 
 SSH="sshpass -p $PEGASUS_PASS ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
 CMD="cat $LOG 2> /dev/null" 
